@@ -1,3 +1,4 @@
+using Core.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,7 +13,28 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<ECommerceContext>(
     options => options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddScoped<IproductRepository, ProductRepository>();
+
 var app = builder.Build();
+
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var loggerFactory = services.GetRequiredService<ILoggerFactory>();
+    try
+    {
+        var context = services.GetRequiredService<ECommerceContext>();
+        await context.Database.MigrateAsync();
+        await ECommerceContextSeed.SeedAsync(context, loggerFactory);
+    }
+    catch (Exception ex)
+    {
+        var logger = loggerFactory.CreateLogger<Program>();
+        logger.LogError(ex, "An error occured during migration");
+    }
+}
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -26,5 +48,7 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+
+
 
 app.Run();
